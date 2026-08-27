@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2026 Nubia / ZTE. All rights reserved.
+ *
+ * Nubia Red Magic 11S Pro+ (NX809J)
+ * SoC: Qualcomm SM8850 (mainline codename: kaanapali)
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "kaanapali-mtp.dts"
+
+/ {
+	model = "Nubia Red Magic 11S Pro+ (NX809J)";
+	compatible = "nubia,nx809j", "qcom,kaanapali-mtp", "qcom,kaanapali";
+
+	chassis-type = "handset";
+};
+
+&spi19 {
+	status = "okay";
+
+	touchscreen: touchscreen@0 {
+		compatible = "synaptics,tcm-spi";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <158 IRQ_TYPE_LEVEL_LOW>;
+
+		reset-gpios = <&tlmm 66 GPIO_ACTIVE_LOW>;
+
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_suspend>;
+		pinctrl-names = "default", "sleep";
+
+		status = "okay";
+	};
+};
+
+&tlmm {
+	ts_active: ts-active-state {
+		pins = "gpio66", "gpio158";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-pull-up;
+	};
+
+	ts_suspend: ts-suspend-state {
+		pins = "gpio66", "gpio158";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+};
