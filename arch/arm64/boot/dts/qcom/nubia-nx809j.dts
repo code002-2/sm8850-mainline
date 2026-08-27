@@ -55,3 +55,24 @@
 		bias-pull-down;
 	};
 };
+
+/* Persistent console log shared with the Android side (same physical
+ * region the stock OS uses); read failures back from Android via:
+ *   /sys/fs/pstore/console-ramoops-0
+ */
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		ramoops@e2000000 {
+			compatible = "ramoops";
+			reg = <0x0 0xe2000000 0x0 0x200000>;
+
+			console-size = <0x200000>;
+			record-size = <0>;
+			pmsg-size = <0>;
+			ftrace-size = <0>;
+		};
+	};
+};
