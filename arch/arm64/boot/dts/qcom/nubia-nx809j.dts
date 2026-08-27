@@ -40,6 +40,12 @@
 	};
 };
 
+/* Diagnostics: force peripheral role so the host sees enumeration as soon
+ * as the controller probes, without waiting for pmic-glink CC logic. */
+&usb {
+	dr_mode = "peripheral";
+};
+
 &tlmm {
 	ts_active: ts-active-state {
 		pins = "gpio66", "gpio158";
