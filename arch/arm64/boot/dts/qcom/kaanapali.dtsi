@@ -7309,3 +7309,5 @@
 		};
 	};
 };
+
+#include "kaanapali-gpu.dtsi"
