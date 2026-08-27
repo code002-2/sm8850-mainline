@@ -102,6 +102,41 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 
+		/* Gunyah / TZ / XBL / SoCCP runtime regions that our
+		 * kaanapali.dtsi does NOT declare but the firmware actively
+		 * uses. Missing any of these causes the kernel to allocate
+		 * over hypervisor/TZ code -> exception -> ZTE Memory Dump.
+		 * Addresses copied from map220v's working kaanapali tree. */
+		gunyah_hyp_mem: gunyah-hyp@80000000 {
+			reg = <0x0 0x80000000 0x0 0xe00000>;
+			no-map;
+		};
+
+		adsp_mhi_mem: adsp-mhi@82380000 {
+			reg = <0x0 0x82380000 0x0 0x20000>;
+			no-map;
+		};
+
+		soccp_sdi_mem: soccp-sdi@823a0000 {
+			reg = <0x0 0x823a0000 0x0 0x40000>;
+			no-map;
+		};
+
+		global_sync_mem: global-sync@d7a00000 {
+			reg = <0x0 0xd7a00000 0x0 0x200000>;
+			no-map;
+		};
+
+		tz_merged_mem: tz-merged@d8000000 {
+			reg = <0x0 0xd8000000 0x0 0x800000>;
+			no-map;
+		};
+
+		llcc_lpi_mem: llcc-lpi@ff800000 {
+			reg = <0x0 0xff800000 0x0 0x800000>;
+			no-map;
+		};
+
 		ramoops@e2000000 {
 			compatible = "ramoops";
 			reg = <0x0 0xe2000000 0x0 0x200000>;
