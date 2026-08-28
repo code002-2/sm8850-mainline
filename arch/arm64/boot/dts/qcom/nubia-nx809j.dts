@@ -148,3 +148,25 @@
 		};
 	};
 };
+
+/* ===== Bring-up bisect: force-off the GPU subsystem =====
+ * kaanapali-gpu.dtsi (from a non-mainline lore series, Adreno 840
+ * chip_id 44050a01) leaves gpu/gmu/adreno_smmu with NO status, so they
+ * default to "okay" and the msm/adreno + arm-smmu drivers probe them at
+ * boot. This tree has no working Adreno 840 mainline catalog, and
+ * CONFIG_ARM_SMMU_DISABLE_BYPASS_BY_DEFAULT yields a fault on the first
+ * unmapped SMMU access. Black-screen-then-Memory-Dump is consistent with
+ * the GPU/SMMU probe faulting before any console output. We don't need
+ * the GPU to reach a console, so force it off for the bisect.
+ */
+&gpu {
+	status = "disabled";
+};
+
+&gmu {
+	status = "disabled";
+};
+
+&adreno_smmu {
+	status = "disabled";
+};
