@@ -984,6 +984,15 @@ void start_kernel(void)
 	char *command_line;
 	char *after_dashes;
 
+	/* BRING-UP probe: no console (no UART, pstore gets overwritten on
+	 * reboot to Android), so we bisect boot progress by timing the crash.
+	 * If the kernel reaches start_kernel, this 10s busy-wait delays the
+	 * firmware memory-dump by ~10s vs a build without it. Measure the
+	 * time from `fastboot boot` to the QUSB_BULK dump device appearing:
+	 * +~10s  => start_kernel was reached (crash is later in the C boot);
+	 * no change => crash is even earlier (head.S / early asm / MMU). */
+	mdelay(10000);
+
 	set_task_stack_end_magic(&init_task);
 	smp_setup_processor_id();
 	debug_objects_early_init();
