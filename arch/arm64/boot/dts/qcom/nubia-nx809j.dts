@@ -8,6 +8,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/arm/qcom,ids.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "kaanapali-mtp.dts"
@@ -18,36 +19,17 @@
 
 	chassis-type = "handset";
 
-	/* kaanapali.dtsi leaves /memory size=0 expecting the bootloader to
-	 * fill it in. GRUB's arm64 FDT boot protocol passes the DTB through
-	 * unmodified (no EFI handover in 2.06), so the kernel would see zero
-	 * RAM and panic instantly. Override with the exact usable-RAM layout
-	 * taken from the vendor FDT (/sys/firmware/fdt), which already
-	 * excludes every firmware reservation — matching /proc/iomem on the
-	 * running device. */
-	memory@a0000000 {
-		reg = <0x0 0x81960000 0x0 0xa0000>,
-		      <0x0 0x81a60000 0x0 0x1a0000>,
-		      <0x0 0x81cf4000 0x0 0xc000>,
-		      <0x0 0x82478000 0x0 0x28000>,
-		      <0x0 0xd8800000 0x0 0x0>,
-		      <0x0 0xdfda0000 0x0 0x1fa60000>,
-		      <0x8 0x80000000 0x0 0x2f6fd000>,
-		      <0x8 0xb0000000 0x0 0x8500000>,
-		      <0xa 0x0 0x2 0x0>,
-		      <0x8 0xc0000000 0x1 0x40000000>,
-		      <0x0 0x82600000 0x0 0x100000>,
-		      <0x0 0x82800000 0x0 0x2200000>,
-		      <0x0 0x8a980000 0x0 0x80000>,
-		      <0x0 0x9959c000 0x0 0x64000>,
-		      <0x0 0x9ce80000 0x0 0x2e00000>,
-		      <0x0 0x9ffe0000 0x0 0x70000>,
-		      <0x0 0xa0910000 0x0 0xa70000>,
-		      <0x0 0xa5a00000 0x0 0x2f423000>,
-		      <0x0 0xd5100000 0x0 0x2700000>,
-		      <0x0 0xd79c0000 0x0 0x40000>,
-		      <0x0 0xd7c00000 0x0 0x400000>;
-	};
+	/* Bootloader board selection - REQUIRED. Without these the bootloader
+	 * cannot choose the correct board and does not bring the platform up.
+	 * Mirrors the working kaanapali trees (oneplus-infiniti). */
+	qcom,msm-id = <QCOM_ID_SM8850 0x20000>;	/* SM8850 v2.0 */
+	qcom,board-id = <0 0>;
+
+	/* /memory is deliberately NOT overridden. When booting through ABL
+	 * (the path that actually works - it performs the Gunyah/hypervisor
+	 * handoff) the bootloader fills /memory with the real usable-RAM map.
+	 * The old vendor-fragment override existed only to work around the
+	 * GRUB classic-FDT path, where nothing filled /memory. */
 };
 
 &spi19 {
@@ -168,5 +150,68 @@
 };
 
 &adreno_smmu {
+	status = "disabled";
+};
+
+/* ===== NoC QoS bring-up fix (boot-killer without it) =====
+ * The static QoS MMIO of the LPASS/MMSS/NSP NoC providers lives in power
+ * islands that are NOT up during early boot. When such a provider probes,
+ * qcom_icc_set_qos() writes its QoS registers -> synchronous external abort
+ * (SEA) -> the boot dies. This is documented in the working kaanapali trees
+ * ("probing it now causes a sync external abort in qcom_icc_rpmh_configure_qos()").
+ *
+ * The LPASS providers exist only for audio, which is not needed for bring-up,
+ * so disable them together with the audio codecs / soundwire (the MTP board
+ * pulls all of those in). NSP is compute-only -> off too. The MMSS NoC is the
+ * MDP0->EBI1 provider for the display and stays enabled; the global QoS
+ * programming is additionally skipped at runtime by the `icc-rpmh.qos_disable=1`
+ * boot argument (see drivers/interconnect/qcom/icc-rpmh.c).
+ */
+&lpass_lpiaon_noc {
+	status = "disabled";
+};
+
+&lpass_lpicx_noc {
+	status = "disabled";
+};
+
+&lpass_ag_noc {
+	status = "disabled";
+};
+
+&nsp_noc {
+	status = "disabled";
+};
+
+&mmss_noc {
+	status = "okay";
+};
+
+/* Audio path (needs the LPASS islands above) - off for bring-up. */
+&lpass_vamacro {
+	status = "disabled";
+};
+
+&lpass_rxmacro {
+	status = "disabled";
+};
+
+&lpass_txmacro {
+	status = "disabled";
+};
+
+&lpass_wsamacro {
+	status = "disabled";
+};
+
+&swr0 {
+	status = "disabled";
+};
+
+&swr1 {
+	status = "disabled";
+};
+
+&swr2 {
 	status = "disabled";
 };

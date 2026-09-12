@@ -23,6 +23,20 @@
 #define QOS_DFLT_PRIO_MASK		GENMASK(6, 4)
 #define QOS_DISABLE_MASK		GENMASK(24, 24)
 
+/*
+ * BRING-UP: the static QoS MMIO of several NoC providers (LPASS, MMSS, NSP...)
+ * lives in power islands that are NOT up during early boot. Touching it from
+ * qcom_icc_set_qos() raises a synchronous external abort (SEA) and kills the
+ * boot. Allow skipping the whole QoS programming via
+ *   icc-rpmh.qos_disable=1
+ * (same escape hatch the working kaanapali trees use). The per-provider
+ * interconnect aggregation path is unaffected -- only the static QoS init
+ * is skipped.
+ */
+static bool qcom_icc_qos_disable;
+module_param_named(qos_disable, qcom_icc_qos_disable, bool, 0444);
+MODULE_PARM_DESC(qos_disable, "Skip static QoS programming (unpowered NoC islands)");
+
 /**
  * qcom_icc_set_qos - initialize static QoS configurations
  * @qp: qcom icc provider to which @node belongs
@@ -33,6 +47,9 @@ static void qcom_icc_set_qos(struct qcom_icc_provider *qp,
 {
 	const struct qcom_icc_qosbox *qos = node->qosbox;
 	int port;
+
+	if (qcom_icc_qos_disable)
+		return;
 
 	for (port = 0; port < qos->num_ports; port++) {
 		regmap_update_bits(qp->regmap, QOSGEN_MAINCTL_LO(qos, port),
