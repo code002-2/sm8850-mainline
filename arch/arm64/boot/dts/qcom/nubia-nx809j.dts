@@ -392,6 +392,31 @@
 	status = "disabled";
 };
 
+/* ===== Bring-up: the next two devices the deferred list walks into =====
+ *
+ * With the NoC providers gone the log gets past the interconnect probes and
+ * stops after aggre_noc instead - which is where the devicetree puts these:
+ *
+ *     dma-controller@1900000   gpi_dma3   (okay)
+ *     geniqup@19c0000          qupv3_3    (okay, and every child disabled)
+ *
+ * They are the only GENI/QUP nodes still enabled that sit right there in file
+ * order: gpi_dma1/gpi_dma2 and qupv3_1/qupv3_2 come earlier in the dtsi and the
+ * log already walked past them to reach the NoCs, so those two wrappers are
+ * what the deferred probe is about to touch.
+ *
+ * Both are firmware/clock/interconnect consumers - GPI DMA has firmware loaded
+ * through the TZ, the QUP wrapper needs its clocks and an interconnect path -
+ * and neither is needed here: there are no UART pads on this board and nothing
+ * on i2c or spi that early boot wants. */
+&gpi_dma3 {
+	status = "disabled";
+};
+
+&qupv3_3 {
+	status = "disabled";
+};
+
 /* ===== NoC QoS bring-up fix (boot-killer without it) =====
  * The static QoS MMIO of the LPASS/MMSS/NSP NoC providers lives in power
  * islands that are NOT up during early boot. When such a provider probes,
