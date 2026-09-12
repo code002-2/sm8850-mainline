@@ -257,6 +257,25 @@ static int deferred_devs_show(struct seq_file *s, void *data)
 }
 DEFINE_SHOW_ATTRIBUTE(deferred_devs);
 
+/*
+ * NX809J bring-up diagnostic: same walk as deferred_devs_show(), but to printk.
+ * Debugfs is not mounted anywhere near late_initcall on a board that cannot
+ * reach userspace, so the only way to see the queue is to put it in the log.
+ * Dumping it before the trigger - not after - because the trigger splices the
+ * pending list onto the active list, and it is the pending order that says
+ * which device the flush is about to reach. Temporary.
+ */
+static void nx809j_dump_deferred(const char *where)
+{
+	struct device_private *curr;
+
+	pr_info("dd: deferred queue (%s):\n", where);
+	mutex_lock(&deferred_probe_mutex);
+	list_for_each_entry(curr, &deferred_probe_pending_list, deferred_probe)
+		pr_info("dd:   queued %s\n", dev_name(curr->device));
+	mutex_unlock(&deferred_probe_mutex);
+}
+
 static int driver_deferred_probe_timeout = CONFIG_DRIVER_DEFERRED_PROBE_TIMEOUT;
 
 static int __init deferred_probe_timeout_setup(char *str)
@@ -343,6 +362,7 @@ static int deferred_probe_initcall(void)
 			    &deferred_devs_fops);
 
 	driver_deferred_probe_enable = true;
+	nx809j_dump_deferred("before first flush");
 	driver_deferred_probe_trigger();
 	/* Sort as many dependencies as possible before exiting initcalls */
 	flush_work(&deferred_probe_work);
@@ -355,6 +375,7 @@ static int deferred_probe_initcall(void)
 	 * Trigger deferred probe again, this time we won't defer anything
 	 * that is optional
 	 */
+	nx809j_dump_deferred("before second flush");
 	driver_deferred_probe_trigger();
 	flush_work(&deferred_probe_work);
 
@@ -654,6 +675,18 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 	bool test_remove = IS_ENABLED(CONFIG_DEBUG_TEST_DRIVER_REMOVE) &&
 			   !drv->suppress_bind_attrs;
 	int ret, link_ret;
+
+	/*
+	 * NX809J bring-up diagnostic: this board has no working display driver,
+	 * so the only log channel is the splash framebuffer ABL left scanning -
+	 * and firmware resets the SoC a couple of minutes into boot, taking the
+	 * screen with it. A probe that hangs therefore never reaches its own
+	 * "returned" line in dd.c, and the device that hangs stays invisible no
+	 * matter how many candidates are disabled and re-flashed. Announcing the
+	 * attempt on entry means the last ENTER with no matching "returned"
+	 * names it outright. Temporary; remove once the board boots.
+	 */
+	pr_info("dd: ENTER %s <- %s\n", dev_name(dev), drv->name);
 
 	if (defer_all_probes) {
 		/*
