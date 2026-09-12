@@ -352,6 +352,46 @@
 	status = "disabled";
 };
 
+/* ===== Bring-up: no NoC provider, and no remoteproc =====
+ *
+ * The initcall_debug + dyndbg log ends on a run of successful interconnect
+ * probes -
+ *
+ *     probe of 16e0000.interconnect with driver qnoc-kaanapali returned 0
+ *     probe of 17?0000.interconnect with driver qnoc-kaanapali returned 0
+ *
+ * and then nothing at all, which is what a hang looks like: the next device's
+ * probe never returns and never prints. In devicetree order the next NoC after
+ * aggre_noc is mmss_noc (disabled above), then the lpass and nsp ones
+ * (disabled), and finally gem_noc - the last provider left that sits behind a
+ * power island nothing has powered.
+ *
+ * So take out every remaining NoC provider. They are only needed for
+ * bandwidth voting; with UFS, the display and the DSPs all off there is nothing
+ * left that needs a vote, and disabling the providers means the deferred-probe
+ * phase stops walking into dead register space. A side effect worth having: no
+ * 'interconnect' line in the log at all identifies this build.
+ *
+ * The remoteprocs go the same way: each one asks the TZ (over SCM) to
+ * authenticate firmware and then waits for the DSP to answer over GLINK. Both
+ * are waits on something outside the AP, and none of ADSP, CDSP or SoCCP is
+ * needed to reach an initramfs shell. */
+&gem_noc {
+	status = "disabled";
+};
+
+&remoteproc_soccp {
+	status = "disabled";
+};
+
+&remoteproc_adsp {
+	status = "disabled";
+};
+
+&remoteproc_cdsp {
+	status = "disabled";
+};
+
 /* ===== NoC QoS bring-up fix (boot-killer without it) =====
  * The static QoS MMIO of the LPASS/MMSS/NSP NoC providers lives in power
  * islands that are NOT up during early boot. When such a provider probes,
