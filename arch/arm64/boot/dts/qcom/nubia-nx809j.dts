@@ -209,6 +209,41 @@
 	};
 };
 
+/* ===== Bring-up: get to a shell first, then add hardware back =====
+ *
+ * Every iteration so far has moved the hang a little further along - 0.25 s,
+ * then 0.96 s of kernel time - and each one costs a build, a fastboot dance and
+ * a five second window in which the panel shows the log before the reset
+ * replaces it. That is a slow way to port a platform.
+ *
+ * So take the other road: take out the late hardware that is most likely to
+ * hang and that nothing in early boot needs, reach the initramfs shell on the
+ * panel, and re-enable things one at a time from there. A live shell also means
+ * the kernel is not stuck, so the APSS watchdog keeps being petted and the
+ * device stops resetting into the vendor memory-dump screen at all.
+ *
+ * UFS: the reference U-Boot port needed a dedicated hyp-SMMU driver before UFS
+ * would transfer anything on this SoC, and this kernel has CONFIG_SCSI_UFS_QCOM
+ * built in with the same SMMU in the path. The initramfs does not need it - its
+ * log sinks fail gracefully and it drops to a shell regardless.
+ *
+ * apps_smmu: on Qualcomm phones the SMMU is brought up by firmware, partly
+ * emulated by the hypervisor, and cannot be turned off. The U-Boot side of this
+ * port needed its own qcom-hyp-smmu driver for exactly that reason, and
+ * CONFIG_ARM_SMMU_DISABLE_BYPASS_BY_DEFAULT=y means a single unmapped stream
+ * takes a fault rather than passing through. */
+&ufs_mem_hc {
+	status = "disabled";
+};
+
+&ufs_mem_phy {
+	status = "disabled";
+};
+
+&apps_smmu {
+	status = "disabled";
+};
+
 /* ===== Bring-up bisect: force-off the display subsystem =====
  * kaanapali-mtp.dts enables &mdss and hangs a panel off &mdss_dsi0, so
  * drm/msm probes MDSS at boot. On this board that is exactly the path the
