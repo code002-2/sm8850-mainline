@@ -348,7 +348,20 @@
 };
 
 &mmss_noc {
-	status = "okay";
+	/*
+	 * Was forced okay during the display bring-up attempt; the display is
+	 * off now (see the MDSS block above), so there is no reason to keep it.
+	 *
+	 * MMSS_NOC is one of the NoC providers whose registers sit behind a
+	 * power domain that nothing has powered: DISP_CC and MDSS are disabled,
+	 * so the MMSS island is off, and the provider's probe - which programs
+	 * QoS and BCM registers - is a bus access into a dead island. That is
+	 * the same failure class the working kaanapali trees warn about, and it
+	 * is where the kernel now stops: with initcall_debug and dyndbg the last
+	 * unpaired initcall is deferred_probe_initcall, and the last successful
+	 * probes are the interconnect ones (icc-bcm-voter, on interconnect@...).
+	 */
+	status = "disabled";
 };
 
 /* Audio path (needs the LPASS islands above) - off for bring-up. */
