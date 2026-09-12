@@ -188,6 +188,10 @@
 };
 
 /* Audio path (needs the LPASS islands above) - off for bring-up. */
+&lpass_wsa2macro {
+	status = "disabled";
+};
+
 &lpass_vamacro {
 	status = "disabled";
 };
