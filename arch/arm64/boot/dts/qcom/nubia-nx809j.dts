@@ -25,11 +25,77 @@
 	qcom,msm-id = <QCOM_ID_SM8850 0x20000>;	/* SM8850 v2.0 */
 	qcom,board-id = <0 0>;
 
-	/* /memory is deliberately NOT overridden. When booting through ABL
-	 * (the path that actually works - it performs the Gunyah/hypervisor
-	 * handoff) the bootloader fills /memory with the real usable-RAM map.
-	 * The old vendor-fragment override existed only to work around the
-	 * GRUB classic-FDT path, where nothing filled /memory. */
+	/* /memory: filled by ABL when booting through ABL (the bootloader
+	 * replaces /memory with the real usable-RAM map, so the ranges below
+	 * cost nothing there), but U-Boot - the path this board is now brought
+	 * up on - hands the kernel exactly the devicetree it loaded, so the
+	 * ranges have to be here or the kernel has no RAM at all.
+	 *
+	 * They are ABL's own usable ranges, read back from this device
+	 * (/sys/firmware/fdt on a stock Android boot) - not a guess.
+	 *
+	 * NOTE the 0xdfda0000 range: ABL reports it as one run up to
+	 * 0xff800000, but the splash carve-out [0xfc800000, 0xff300000) is
+	 * split OUT here instead of merely being covered by reserved-memory.
+	 * simplefb does request_mem_region() on its framebuffer, and a region
+	 * that sits inside the busy "System RAM" iomem resource fails that
+	 * request with -EBUSY - so the console would silently never appear.
+	 * Keeping the framebuffer out of /memory also guarantees nothing
+	 * allocates over the buffer the DPU is still scanning. */
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x81960000 0x0 0xa0000>,
+		      <0x0 0x81a60000 0x0 0x1a0000>,
+		      <0x0 0x81cf4000 0x0 0xc000>,
+		      <0x0 0x82478000 0x0 0x28000>,
+		      <0x0 0x82600000 0x0 0x100000>,
+		      <0x0 0x82800000 0x0 0x2200000>,
+		      <0x0 0x8a980000 0x0 0x80000>,
+		      <0x0 0x9959c000 0x0 0x64000>,
+		      <0x0 0x9ce80000 0x0 0x2e00000>,
+		      <0x0 0x9ffe0000 0x0 0x70000>,
+		      <0x0 0xa0910000 0x0 0xa70000>,
+		      <0x0 0xa5a00000 0x0 0x2f423000>,
+		      <0x0 0xd5100000 0x0 0x2700000>,
+		      <0x0 0xd79c0000 0x0 0x40000>,
+		      <0x0 0xd7c00000 0x0 0x400000>,
+		      <0x0 0xdfda0000 0x0 0x1ca60000>,	/* .. 0xfc800000 */
+		      <0x0 0xff300000 0x0 0x500000>,	/* 0xff300000 .. 0xff800000 */
+		      <0x8 0x80000000 0x0 0x2f6fd000>,
+		      <0x8 0xb0000000 0x0 0x8500000>,
+		      <0x8 0xc0000000 0x1 0x40000000>,
+		      <0xa 0x0 0x2 0x0>;
+	};
+
+	/* Console. ABL leaves the DPU scanning out of the splash buffer, and
+	 * with the display subsystem forced off below neither U-Boot nor this
+	 * kernel ever reprograms MDSS, so the buffer stays live on the panel.
+	 * simple-framebuffer lets the kernel draw its log straight into it:
+	 * CONFIG_FB_SIMPLE maps the region, fbdev gives us fb0 and fbcon binds
+	 * to it, so `console=tty1` puts the entire printk log - including
+	 * everything buffered before fbcon came up, which the console layer
+	 * replays on registration - on the only screen this board has.
+	 *
+	 * Deliberately NO clocks property. The reference tree's note that
+	 * simplefb "does not work here" is about simplefb's own clock handling
+	 * (clk_prepare_enable on display clocks whose power island is down) and
+	 * about the msm_mdss reset path - neither of which applies to a plain
+	 * pixel buffer that the bootloader already programmed and is already
+	 * scanning out. */
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		framebuffer@fc800000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0xfc800000 0x0 (1216 * 2688 * 4)>;
+			width = <1216>;
+			height = <2688>;
+			stride = <(1216 * 4)>;
+			format = "a8r8g8b8";
+		};
+	};
 };
 
 &spi19 {
@@ -128,7 +194,77 @@
 			pmsg-size = <0>;
 			ftrace-size = <0>;
 		};
+
+		/* The bootloader's splash / console buffer, the one the DPU is
+		 * scanning out of and the one our /chosen framebuffer points at.
+		 * Belt and braces on top of splitting it out of /memory above:
+		 * `no-map` also keeps it out of the linear map, so the kernel
+		 * cannot touch it through a stray pointer either. Needed in its
+		 * own right on the ABL boot path, where the bootloader replaces
+		 * /memory and this carve-out would otherwise be allocated. */
+		splash_mem: splash@fc800000 {
+			reg = <0x0 0xfc800000 0x0 0x2b00000>;
+			no-map;
+		};
 	};
+};
+
+/* ===== Bring-up bisect: force-off the display subsystem =====
+ * kaanapali-mtp.dts enables &mdss and hangs a panel off &mdss_dsi0, so
+ * drm/msm probes MDSS at boot. On this board that is exactly the path the
+ * working kaanapali trees warn about: the DPU is live on the scanout the
+ * bootloader set up, and msm_mdss_enable() / the MDSS power-domain and NoC
+ * transitions on an already-running pipeline stall (AXI/NoC), which is a
+ * silent hang - no console, no reset.
+ *
+ * We do not need it: the panel console comes from the simple-framebuffer in
+ * /chosen, which only writes pixels into the buffer ABL is already
+ * scanning. Force the whole chain off so nothing touches MDSS or dispcc's
+ * power islands during bring-up. */
+&mdss {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+&mdss_dsi0_phy {
+	status = "disabled";
+};
+
+/* ===== Bring-up bisect: force-off the clock controllers that live in
+ * powered-down power islands =====
+ *
+ * This is the same failure class as the NoC QoS one below, and it is worse:
+ * of_clk_init() runs from start_kernel() *before* console_init(), so anything
+ * that raises a synchronous external abort there kills the boot before a single
+ * line of the console exists - no framebuffer console, no pstore, nothing on
+ * the panel but U-Boot's own teardown text. That is exactly the shape of the
+ * current failure (black, then the vendor memory-dump screen).
+ *
+ * VIDEO_CC, GPU_CC, CAM_CC and DISP_CC each sit behind a GDSC that is off at
+ * boot: nothing has powered the video, GPU, camera or display island. Their
+ * qcom_cc_probe() writes branch and PLL registers, so the first access can
+ * abort. None of them is needed to reach a console: MDSS is already off, the
+ * GPU is off, and there is no camera or video bring-up here yet.
+ *
+ * GCC (the always-on top-level controller), TCSR and the RPMh clock output stay
+ * enabled - UFS and the rest of the platform need them. */
+&dispcc {
+	status = "disabled";
+};
+
+&gpucc {
+	status = "disabled";
+};
+
+&camcc {
+	status = "disabled";
+};
+
+&videocc {
+	status = "disabled";
 };
 
 /* ===== Bring-up bisect: force-off the GPU subsystem =====
