@@ -233,6 +233,34 @@
 	status = "disabled";
 };
 
+/* ===== Bring-up bisect: force-off the SPMI PMIC bus =====
+ *
+ * The board DT declares the arbiter as
+ *
+ *     compatible = "qcom,kaanapali-spmi-pmic-arb", "qcom,glymur-spmi-pmic-arb"
+ *
+ * and mainline's drivers/spmi/spmi-pmic-arb.c knows only qcom,spmi-pmic-arb,
+ * qcom,x1e80100-spmi-pmic-arb and qcom,glymur-spmi-pmic-arb - so it binds
+ * through the glymur fallback, whose register layout is not kaanapali's. The
+ * node's reg/reg-names do match the device's own stock devicetree exactly, so
+ * this is not a missing-property problem: the arbiter registers, the transfers
+ * are wrong. Which is what the log shows, right before the kernel stops:
+ *
+ *     pmic-spmi ...: probe with driver pmic-spmi failed with error -5
+ *
+ * drivers/mfd/qcom-spmi-pmic.c reading PMIC revision IDs over that bus gets
+ * -EIO, and an SPMI access that waits for a completion bit that never arrives
+ * hangs instead - so the kernel stops, and a watchdog reset replaces the panel
+ * with the vendor memory-dump screen about thirty seconds later.
+ *
+ * Nothing reachable on this bus is needed to get to a console: the regulators
+ * come from RPMh (/soc@0/rsc@18900000/regulators-0..8), not from SPMI. Disable
+ * the arbiter and everything hanging off it (RTC, pwrkey, PMIC GPIOs, thermal
+ * alarms) until the drivers can be fixed for kaanapali. */
+&{/soc@0/arbiter@c400000} {
+	status = "disabled";
+};
+
 /* ===== Bring-up bisect: force-off the clock controllers that live in
  * powered-down power islands =====
  *
