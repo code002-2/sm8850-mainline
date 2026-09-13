@@ -126,6 +126,23 @@
 };
 
 &tlmm {
+	/*
+	 * The probe of pinctrl@f100000 never returns: with the probe-entry printk
+	 * in place the log ends at "dd: ENTER f100000.pinctrl <- kaanapali-tlmm"
+	 * with no matching "returned" line, and there is no oops, no abort and no
+	 * lockup report - a silent bus stall, which is what a register access to
+	 * the TLMM block looks like when the block is not up yet. msm_pinctrl_probe
+	 * touches those registers almost immediately (msm_pinctrl_setup_pm_reset(),
+	 * then registering 218 GPIOs) and the node carries no clocks, exactly like
+	 * upstream sm8750, so nothing in the driver brings it up first.
+	 *
+	 * Disabled to find out what is behind it. The console is the simplefb on
+	 * the panel and does not need pinctrl, so the log channel survives, and
+	 * anything that does need a pin state will simply defer instead of hanging.
+	 * Re-enable this once the block is known to be powered up at probe time.
+	 */
+	status = "disabled";
+
 	ts_active: ts-active-state {
 		pins = "gpio66", "gpio158";
 		function = "gpio";
