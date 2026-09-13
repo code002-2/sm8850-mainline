@@ -250,15 +250,28 @@
  * CONFIG_ARM_SMMU_DISABLE_BYPASS_BY_DEFAULT=y means a single unmapped stream
  * takes a fault rather than passing through. */
 &ufs_mem_hc {
-	status = "disabled";
+	/*
+	 * Back on. UFS and its SMMU were switched off early in the bisect, when
+	 * everything was still a suspect; the two rounds of probe-entry logging have
+	 * since named the real blockers (the tlmm probe, then the "switch off what
+	 * is unused" initcalls), so they were never the problem.
+	 *
+	 * They are needed for more than storage: with no UFS there are no block
+	 * devices at all, so nothing in the initramfs can persist the kernel log -
+	 * both of /data and the boot_b FAT mount attempts fail and the run has to be
+	 * read off the panel again. Storage is what makes the log machine-readable,
+	 * and the log is what makes every later step cheap.
+	 */
+	status = "okay";
 };
 
 &ufs_mem_phy {
-	status = "disabled";
+	status = "okay";
 };
 
 &apps_smmu {
-	status = "disabled";
+	/* The UFS host sits behind this SMMU, so the two are re-enabled together. */
+	status = "okay";
 };
 
 /* ===== Bring-up bisect: force-off the display subsystem =====
