@@ -11,7 +11,8 @@ name: Bring-up kernel (NX809J)
 #
 # Run this by hand only: a full kernel build is ~40 minutes, and the devicetree
 # changes in between are built in five by the dtb workflow. The artifact
-# contains both Image.gz and the devicetree, so one download gets both.
+# contains both Image.gz and the devicetree, and the two are built in separate
+# steps so that a devicetree error cannot cost us the kernel image as well.
 
 on:
   workflow_dispatch:
@@ -43,8 +44,12 @@ jobs:
           echo "--- console relevant symbols ---"
           grep -E '^CONFIG_(FB|FB_SIMPLE|FRAMEBUFFER_CONSOLE|VT|VT_CONSOLE|FONT_8x16|LOGO|DRM|DRM_SIMPLEDRM|SYSFB|PSTORE|PSTORE_RAM|RANDOMIZE_BASE)=' .config || true
 
-      - name: Build
-        run: make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs
+      - name: Build the kernel image
+        run: make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz
+
+      - name: Build the devicetrees
+        continue-on-error: true
+        run: make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs
 
       - name: Artifact
         uses: actions/upload-artifact@v4

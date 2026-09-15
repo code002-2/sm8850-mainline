@@ -117,6 +117,7 @@
 	};
 };
 
+/ {
 	framebuffer@fc800000 {
 		compatible = "simple-framebuffer";
 		reg = <0x0 0xfc800000 0x0 (1216 * 2688 * 4)>;
@@ -125,6 +126,7 @@
 		stride = <(1216 * 4)>;
 		format = "a8r8g8b8";
 	};
+};
 
 /*
  * The framebuffer is a top level node on purpose: platform devices are created
