@@ -8,18 +8,18 @@ name: Bring-up kernel (NX809J)
 # loads once the initramfs is up - long after the point where our boots stop.
 # Building it in (plus fbcon and the logo, which is proof that the console came
 # up) makes the kernel print from initcall time on.
+#
+# Run this by hand only: a full kernel build is ~40 minutes, and the devicetree
+# changes in between are built in five by the dtb workflow. The artifact
+# contains both Image.gz and the devicetree, so one download gets both.
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/bringup.yml'
-      - 'arch/arm64/boot/dts/qcom/nubia-nx809j.dts'
 
 jobs:
   kernel:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 

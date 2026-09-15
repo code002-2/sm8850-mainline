@@ -1,0 +1,39 @@
+name: Devicetree (NX809J)
+
+# Devicetree only: ~5 minutes against the ~40 of a kernel build. The DTB is
+# handed to the kernel separately by the loader, so iterating on the device
+# tree does not need a new kernel at all.
+
+on:
+  push:
+    paths:
+      - 'arch/arm64/boot/dts/qcom/nubia-nx809j.dts'
+      - 'arch/arm64/boot/dts/qcom/kaanapali*.dtsi'
+      - 'arch/arm64/boot/dts/qcom/*kaanapali*.dts'
+      - '.github/workflows/dtb.yml'
+  workflow_dispatch:
+
+jobs:
+  dtb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cross toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu bc bison flex libssl-dev libelf-dev
+
+      - name: Build the devicetree
+        run: |
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+          make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- qcom/nubia-nx809j.dtb
+          ls -l arch/arm64/boot/dts/qcom/nubia-nx809j.dtb
+
+      - name: Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nx809j-dtb
+          if-no-files-found: error
+          path: arch/arm64/boot/dts/qcom/nubia-nx809j.dtb
