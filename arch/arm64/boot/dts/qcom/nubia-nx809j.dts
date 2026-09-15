@@ -13,6 +13,23 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "kaanapali-mtp.dts"
 
+/*
+ * No PSCI probe on this phone.
+ *
+ * kaanapali.dtsi declares a PSCI node with method = "smc". The vendor
+ * devicetree for this board has no /psci node at all: the bootloader starts
+ * Gunyah as the hypervisor and Android runs as a guest whose PSCI comes from
+ * Gunyah over HVC - the tree carries /hypervisor with
+ * "qcom,gunyah-hypervisor-1.0" plus a "qcom,gunyah-vm" child instead. Probing
+ * the SMC conduit hands EL3 an SMC the firmware was never configured to
+ * accept, and the answer to that is a reset into the vendor's memory dump,
+ * before the kernel has printed a single line. Boot single core and leave the
+ * secure monitor alone until we know what it does implement.
+ */
+/ {
+	/delete-node/ psci;
+};
+
 / {
 	model = "Nubia Red Magic 11S Pro+ (NX809J)";
 	compatible = "nubia,nx809j", "qcom,kaanapali-mtp", "qcom,kaanapali";
@@ -92,7 +109,7 @@
 		 * copies this devicetree, the kernel and the initramfs to fixed
 		 * addresses and branches to the kernel with x0 pointing here.
 		 * Keep the addresses in sync with that file. */
-		bootargs = "console=tty0 loglevel=8 ignore_loglevel keep_bootcon initcall_debug initcall_blacklist=clk_disable_unused,genpd_power_off_unused,regulator_init_complete,of_platform_sync_state_init panic=0 oops=panic fw_devlink=off icc-rpmh.qos_disable=1";
+		bootargs = "console=tty0 loglevel=8 nosmp ignore_loglevel keep_bootcon initcall_debug initcall_blacklist=clk_disable_unused,genpd_power_off_unused,regulator_init_complete,of_platform_sync_state_init panic=0 oops=panic fw_devlink=off icc-rpmh.qos_disable=1";
 
 		linux,initrd-start = <0x0 0xa9400000>;
 		linux,initrd-end = <0x0 (0xa9400000 + 1479100)>;
