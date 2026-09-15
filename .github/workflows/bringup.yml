@@ -1,0 +1,56 @@
+name: Bring-up kernel (NX809J)
+
+# Builds a kernel whose console is the panel.
+#
+# This board has no wired-out debug UART, so the only output channel during
+# bring-up is the framebuffer the bootloader is already scanning out of. The
+# distro kernel we were handed has simplefb as a module, and a module only
+# loads once the initramfs is up - long after the point where our boots stop.
+# Building it in (plus fbcon and the logo, which is proof that the console came
+# up) makes the kernel print from initcall time on.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/bringup.yml'
+      - 'arch/arm64/boot/dts/qcom/nubia-nx809j.dts'
+
+jobs:
+  kernel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cross toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu bc bison flex libssl-dev libelf-dev
+
+      - name: Configure
+        run: |
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+          scripts/config --file .config \
+            -e FB -e FB_SIMPLE -e FRAMEBUFFER_CONSOLE -e VT -e VT_CONSOLE \
+            -e FONTS -e FONT_8x16 -e LOGO -e LOGO_LINUX_CLUT224 \
+            -e PSTORE -e PSTORE_RAM -e PSTORE_CONSOLE -e PSTORE_PMSG \
+            -e BLK_DEV_INITRD -e RD_GZIP -e DEVTMPFS -e DEVTMPFS_MOUNT \
+            -e TMPFS -e PROC_FS -e SYSFS \
+            -d DRM -d DRM_SIMPLEDRM -d FB_EFI -d WERROR -d RANDOMIZE_BASE \
+            -d DEBUG_INFO -e DEBUG_INFO_NONE
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+          echo "--- console relevant symbols ---"
+          grep -E '^CONFIG_(FB|FB_SIMPLE|FRAMEBUFFER_CONSOLE|VT|VT_CONSOLE|FONT_8x16|LOGO|DRM|DRM_SIMPLEDRM|SYSFB|PSTORE|PSTORE_RAM|RANDOMIZE_BASE)=' .config || true
+
+      - name: Build
+        run: make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz dtbs
+
+      - name: Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nx809j-bringup
+          if-no-files-found: error
+          path: |
+            arch/arm64/boot/Image.gz
+            arch/arm64/boot/dts/qcom/nubia-nx809j.dtb

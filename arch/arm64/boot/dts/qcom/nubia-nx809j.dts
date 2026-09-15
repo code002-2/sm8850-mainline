@@ -92,7 +92,7 @@
 		 * copies this devicetree, the kernel and the initramfs to fixed
 		 * addresses and branches to the kernel with x0 pointing here.
 		 * Keep the addresses in sync with that file. */
-		bootargs = "console=ttyMSM0,115200n8 console=tty1 ignore_loglevel initcall_debug initcall_blacklist=clk_disable_unused,genpd_power_off_unused,regulator_init_complete,of_platform_sync_state_init panic=0 oops=panic fw_devlink=off icc-rpmh.qos_disable=1 icc_rpmh.qos_disable=1";
+		bootargs = "console=tty0 loglevel=8 ignore_loglevel keep_bootcon initcall_debug initcall_blacklist=clk_disable_unused,genpd_power_off_unused,regulator_init_complete,of_platform_sync_state_init panic=0 oops=panic fw_devlink=off icc-rpmh.qos_disable=1";
 
 		linux,initrd-start = <0x0 0xa9400000>;
 		linux,initrd-end = <0x0 (0xa9400000 + 1479100)>;
