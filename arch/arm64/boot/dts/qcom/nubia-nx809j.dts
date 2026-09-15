@@ -14,20 +14,26 @@
 #include "kaanapali-mtp.dts"
 
 /*
- * No PSCI probe on this phone.
+ * Do not let the kernel talk PSCI to the secure monitor.
  *
- * kaanapali.dtsi declares a PSCI node with method = "smc". The vendor
- * devicetree for this board has no /psci node at all: the bootloader starts
- * Gunyah as the hypervisor and Android runs as a guest whose PSCI comes from
- * Gunyah over HVC - the tree carries /hypervisor with
- * "qcom,gunyah-hypervisor-1.0" plus a "qcom,gunyah-vm" child instead. Probing
- * the SMC conduit hands EL3 an SMC the firmware was never configured to
- * accept, and the answer to that is a reset into the vendor's memory dump,
- * before the kernel has printed a single line. Boot single core and leave the
- * secure monitor alone until we know what it does implement.
+ * kaanapali.dtsi declares a PSCI node with method = "smc". This phone's
+ * firmware does not expect that: the bootloader starts Gunyah as the hypervisor
+ * and Android runs as its guest, taking PSCI from Gunyah over HVC, which is why
+ * the vendor tree has /hypervisor populated ("qcom,gunyah-hypervisor-1.0" with
+ * a "qcom,gunyah-vm" child) and no /psci node at all. Handing EL3 an SMC it was
+ * never configured for is answered with a reset into the vendor's memory dump,
+ * and it happens inside the PSCI probe - before the kernel can print a line,
+ * which is what we kept seeing.
+ *
+ * The node cannot simply be deleted: the CPU and system power domains live in
+ * it (cpu_pd0..cpu_pd7, system_pd), so every cpu node's phandle breaks. Instead
+ * make the method one the driver does not accept. psci_dt_init() only knows
+ * "smc" and "hvc", so anything else makes it fail out with -EINVAL without
+ * issuing a single SMC, while the labels and the power domains stay put. With
+ * nosmp on the command line nothing then touches the NULL psci_ops either.
  */
-/ {
-	/delete-node/ psci;
+&{/psci} {
+	method = "none";
 };
 
 / {
