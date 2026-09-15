@@ -97,16 +97,27 @@
 		linux,initrd-start = <0x0 0xa9400000>;
 		linux,initrd-end = <0x0 (0xa9400000 + 1479100)>;
 
-		framebuffer@fc800000 {
-			compatible = "simple-framebuffer";
-			reg = <0x0 0xfc800000 0x0 (1216 * 2688 * 4)>;
-			width = <1216>;
-			height = <2688>;
-			stride = <(1216 * 4)>;
-			format = "a8r8g8b8";
-		};
 	};
 };
+
+	framebuffer@fc800000 {
+		compatible = "simple-framebuffer";
+		reg = <0x0 0xfc800000 0x0 (1216 * 2688 * 4)>;
+		width = <1216>;
+		height = <2688>;
+		stride = <(1216 * 4)>;
+		format = "a8r8g8b8";
+	};
+
+/*
+ * The framebuffer is a top level node on purpose: platform devices are created
+ * for the children of the root node, but not for the children of /chosen on
+ * arm64 - the helper that turns a /chosen/simple-framebuffer into a platform
+ * device (SYSFB_SIMPLEFB) depends on X86 || EFI. With FB_SIMPLE=y built in
+ * this node gives the kernel a real console on the panel from initcall time,
+ * which is the only output channel this board has: the debug UART is not
+ * wired out and the ABL leaves the panel scanning out of this very buffer.
+ */
 
 &spi19 {
 	status = "okay";
